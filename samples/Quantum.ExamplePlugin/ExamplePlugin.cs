@@ -21,22 +21,22 @@ public sealed class ExamplePlugin : IQuantumPlugin
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        IQuantumPluginRuntimeContext runtime = services.GetRequiredService<IQuantumPluginRuntimeContext>();
+        var runtime = services.GetRequiredService<IQuantumPluginRuntimeContext>();
         if (File.Exists(Path.Combine(runtime.RootPath, "fail-start")))
         {
             throw new InvalidOperationException("Example plugin startup failure was requested by a marker file.");
         }
 
-        IQuantumPluginEnvironment environment = services.GetRequiredService<IQuantumPluginEnvironment>();
+        var environment = services.GetRequiredService<IQuantumPluginEnvironment>();
         services.GetRequiredService<ExamplePluginState>().Start(
             DateTimeOffset.Now,
-            environment.IsPluginLoaded(PluginId.Of("quantum.plugin.example-web")));
+            environment.IsPluginLoaded("quantum.plugin.example-web"));
 
         services.GetRequiredService<IQuantumMobilePages>().Publish(MobileUi.Page("hello", "Quantum on your phone",
             MobileUi.VStack("root",
                 MobileUi.Text("title", "Connected to your desktop").Appearance("title"),
                 MobileUi.Text("description", "This button invokes the existing desktop plugin RPC."),
-                MobileUi.Button("greet", "Say hello").OnClick(MobileUi.Rpc("quantum.plugin.example.example.greet")))));
+                MobileUi.Button("greet", "Say hello").OnClick(MobileUi.Request("example.greet")))));
 
         return Task.CompletedTask;
     }

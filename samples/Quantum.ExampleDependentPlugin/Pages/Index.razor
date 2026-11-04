@@ -14,9 +14,8 @@
 
     <div class="dependency-flow" aria-label="@L["PluginStatus"]">
         <article>
-            <span>@L["ExamplePlugin"]</span>
-            <strong>@(State.RequiredPlugin is { } requiredPlugin ? requiredPlugin.Id.ToString() : L["Waiting"].Value)</strong>
-            <p>@L["VersionArg", State.RequiredPlugin?.Version.ToString() ?? "—"]</p>
+            <span>@L["RequiredCapability"]</span>
+            <strong>@DependentPlugin.GreetingCapabilityName</strong>
         </article>
         <div class="dependency-arrow" aria-hidden="true">→</div>
         <article>

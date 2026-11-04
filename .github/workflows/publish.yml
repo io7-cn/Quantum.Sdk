@@ -1,0 +1,114 @@
+name: Publish SDK
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdk-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.repository == 'io7-cn/Quantum.Sdk' && github.ref_type == 'tag'
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: verify
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      channel: ${{ steps.version.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+      - id: version
+        shell: bash
+        run: |
+          git merge-base --is-ancestor HEAD origin/main
+          test "$(git cat-file -t "refs/tags/$GITHUB_REF_NAME")" = tag
+          version="${GITHUB_REF_NAME#v}"
+          node --input-type=module -e 'import {parseVersion} from "./.ci/compute-version.mjs"; if (!parseVersion(process.argv[1])) process.exit(1)' "$version"
+          test "$version" = "$(node -p 'require("./typescript/package.json").version')"
+          test "$version" = "$(python3 -c 'import xml.etree.ElementTree as E; print(E.parse("dotnet/src/Quantum.Plugin.Abstraction/Quantum.Plugin.Abstraction.csproj").findtext(".//Version"))')"
+          channel=latest
+          if [[ "$version" == *-* ]]; then channel=next; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+      - name: Build and inspect release artifacts
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p artifacts/nuget artifacts/npm
+          dotnet pack dotnet/src/Quantum.Plugin.Abstraction/Quantum.Plugin.Abstraction.csproj -c Release -p:PackageVersion="$VERSION" -p:ContinuousIntegrationBuild=true -o artifacts/nuget
+          python3 .ci/verify-sdk-package.py artifacts/nuget
+          npm ci --prefix typescript
+          npm run build --prefix typescript
+          npm pack ./typescript --pack-destination artifacts/npm
+          sha256sum artifacts/nuget/*.nupkg artifacts/npm/*.tgz > artifacts/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-packages
+          path: artifacts/
+          if-no-files-found: error
+
+  nuget:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdk-packages
+          path: artifacts
+      - run: sha256sum -c artifacts/SHA256SUMS
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ vars.NUGET_USER }}
+      - name: Publish NuGet package
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: dotnet nuget push "artifacts/nuget/Quantum.Plugin.Abstraction.$VERSION.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+
+  npm:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdk-packages
+          path: artifacts
+      - run: sha256sum -c artifacts/SHA256SUMS
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Publish npm package
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          CHANNEL: ${{ needs.build.outputs.channel }}
+        run: npm publish "artifacts/npm/io7-quantum-plugin-sdk-$VERSION.tgz" --access public --tag "$CHANNEL"

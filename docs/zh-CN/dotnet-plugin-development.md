@@ -2,47 +2,17 @@
 
 [English](../en/dotnet-plugin-development.md)
 
-移动端开发预览提供页面声明 API 与 `IQuantumMobilePages`（包含在 `Quantum.Plugin.Abstraction` 中）。插件在桌面声明界面；手机不加载插件代码。参见[移动 UI 开发说明](mobile-ui.md)。
+插件以 `net10.0` 为目标，并引用与 Quantum Desktop 版本兼容的 `Quantum.Plugin.Abstraction`。参见[插件示例](../../samples/Quantum.ExamplePlugin)。宿主从入口程序集发现 `IQuantumPlugin` 实现。插件在 `ConfigureServices` 注册服务，在 `StartAsync` 启动，在 `StopAsync` 停止任务并释放订阅。
 
-本仓库包含保持能力一致的 .NET 与 TypeScript Quantum Plugin [SDK](glossary.md#sdk)。`Quantum.Plugin.Abstraction` 是桌面宿主与
-本地 DLL 插件共享的稳定 [ABI](glossary.md#abi)；`@io7/quantum-plugin-sdk` 是隔离 Web 插件的 Host transport 契约。
+## 声明和调用能力
 
-生产插件应引用发布后的 `Quantum.Plugin.Abstraction` NuGet 包。仓库内的样例使用项目引用，以便 SDK、宿主与样例一起构建和验证。
-
-- `IQuantumPlugin` 是静态 bootstrap：可通过默认空实现的 `ConfigureServices` 配置本代私有 [DI](glossary.md#di)，并通过
-  `StartAsync`/`StopAsync` 编排生命周期；bootstrap 本身不注册到 DI，也不会创建实例。
-- `IQuantumPluginEnvironment` 提供已加载插件列表和查询；联动逻辑可以直接按目标插件是否可用来决定。
-- `IQuantumPluginRuntimeContext` 提供当前运行版本和只读影子目录路径。
-- `IQuantumEventBus` 提供 ROS 风格的 Topic Publisher/Subscription；发布者和订阅者只需使用 JSON 结构兼容的消息模型。
-- `IRpcInvoker` 通过稳定 [RPC](glossary.md#rpc) 名称调用其他插件的 NOF `RpcServer` Handler；调用方不会取得目标插件的 provider、服务实例或 CLR 类型。
-
-## 插件 RPC
-
-### 从插件安装插件
-
-桌面 Host 的 RPC 目录包含三个安装相关方法：
-
-| RPC 名称 | JSON 参数 | .NET SDK 扩展方法 |
-| --- | --- | --- |
-| `quantum.plugins.installmarketplace` | `{ "pluginId": "quantum.plugin.example" }` | `InstallMarketplacePluginAsync` |
-| `quantum.plugins.installlocal` | `{ "archiveFileName": "example.zip", "archiveBase64": "…" }` | `InstallLocalPluginAsync` |
-| `quantum.plugins.installstatus` | `{ "operationId": "…" }` | `GetPluginInstallStatusAsync` |
-
-从插件 DI 获取 `IRpcInvoker`。本地方法接收 ZIP 文件名和 `byte[]`，SDK 会将字节序列化为 Base64；文件名只用于显示，Host 不会据此读取磁盘。安装包仍按 Host 的 ZIP 大小限制（512 MiB）、依赖和版本规则校验。市场方法按当前 Quantum 版本选取兼容发布。
-
-Quantum 会显示发起插件和安装来源，用户同意后才把请求交给后台安装。成功接受请求时，返回的 `QuantumPluginInstallReceipt` 状态是 `pending`。保存 `OperationId` 并让当前 RPC 处理器返回；安装会等待旧运行时的调用结束，然后重载插件，包括调用方。插件可在重载后使用相同 ID 查询 `succeeded` 或 `failed`，并读取 `Message`。仅发起插件可查询自己的任务；Host 在本次进程中保留最近 64 条记录。取消令牌在请求获接受前有效，已接受的安装由 Host 完成。
-
-Web 插件通过同一组 RPC 调用，见 [TypeScript SDK 的安装示例](web-plugin-development.md#安装插件)。
-
-服务端使用 NOF Contract，并用 Quantum transport 与调用名称标注契约：
+服务端使用 NOF Contract，并为每个 RPC 方法声明能力：
 
 ```csharp
 [TransportOverQuantum]
-[RpcInvocationName("notes")]
 public interface INotesService : IRpcService
 {
-    [RpcInvocationName("find")]
-    [RpcInvocationAlias("search.notes")]
+    [RequestCapability("notes.find", QuantumDispatch.All)]
     Result<Note[]> Find(FindNotesRequest request);
 }
 
@@ -58,175 +28,88 @@ public sealed class FindNotes(NoteStore store) : NotesService.Find
 }
 ```
 
-假设实现插件 id 为 `quantum.plugin.notes`，以上方法可以通过完整名称
-`quantum.plugin.notes.notes.find`、短名称 `notes.find` 或 Alias `search.notes` 调用。所有名称忽略大小写。
-短名称或 Alias 有多个实现时，Host 记录 Warning，并选择实现方法所在 `pluginId` 按 ordinal 字典序最小的一项。
+每个 RPC 方法通过 [RequestCapability] 声明一个稳定的能力名。这里的调用名是 notes.find；它不随插件 ID、CLR 接口名或方法名变化。名称区分大小写，采用小写 ASCII 字母、数字、连字符或下划线组成的点分段，最多 200 字符。quantum. 保留给宿主。
 
-调用方从自己的 DI 获取 `IRpcInvoker`：
+调用方从自己的 DI 获取 `IQuantumRequester`：
 
 ```csharp
-var result = await services.GetRequiredService<IRpcInvoker>().InvokeAsync<Note[]>(
-    "quantum.plugin.notes.notes.find",
+var result = await services.GetRequiredService<IQuantumRequester>().RequestAsync<Note[]>(
+    "notes.find",
     new { text = "quantum" },
     Context.Empty,
     cancellationToken);
 ```
 
-找不到名称时返回失败的 `Result`（`rpc_not_found`），不会抛出“服务未注册”异常。Payload、Context 与 Result
+没有可用提供方时，`outcomes` 为空。调用方按每个 outcome 的状态处理结果。Payload、Context 与 Result
 始终经过 JSON 边界；每次调用在目标插件中创建独立 scope，结果序列化完成后释放。插件在 manifest 的 `capabilities.provides`、`capabilities.requires` 和
-`capabilities.integrates` 中分别声明提供、强依赖和可选联动的 canonical RPC 名。
-每项强依赖都由至少一个已启动的声明提供方满足。调用方使用 `IRpcInvoker` 传递
-canonical 名称，例如 `calendar.get`，Host 在可用的声明提供方中按插件 ID 顺序选择。
-可选联动可通过 `quantum.rpc.catalog` 检查。声明用于加载和路由，RPC 调用仍沿用现有合约。
+`capabilities.integrates` 中分别声明提供、强依赖和可选联动的能力名。宿主加载时要求 `provides` 与程序集提供的能力集合完全一致。
+每项强依赖都由至少一个已启动的声明提供方满足。调用方使用 `IQuantumRequester` 传递
+能力名，例如 `calendar.get`，Host 按能力声明的策略分发。
+可选联动可通过 `quantum.capabilities.list` 检查。多个提供方实现同一能力时，需要遵循同一份请求和响应契约。
 
 需要向 AI 工具或动态调用器导出当前能力时，可读取 Host 的内置 RPC 目录：
 
 ```csharp
-var result = await services.GetRequiredService<IRpcInvoker>()
-    .GetCatalogAsync(cancellationToken);
+var result = await services.GetRequiredService<IQuantumRequester>()
+    .DiscoverCapabilitiesAsync(cancellationToken);
 ```
 
-目录包含每个服务与方法的可调用名称、Alias、输入/输出 JSON Schema，以及服务、方法、参数、返回值、DTO 类型和属性上的
-全部 Attribute。`DescriptionAttribute` 同时会映射到对应目录或 Schema 节点的 `description`。
+目录使用 schema 2：`capabilities` 为平铺列表。每项包含 `name`、所有当前提供方 `providerPluginIds`、输入和输出 JSON Schema，以及方法、参数和返回值的 Attribute 元数据。DTO 类型和属性上的描述保留在 Schema 中。
 
-## 插件标识与版本值对象
+### 从旧版 SDK 迁移
 
-`QuantumPluginInfo.Id` 和 `QuantumPluginInfo.Version` 分别是 `PluginId` 与 `SemanticVersion`，不再是未校验的
-`string`。两者均直接实现 NOF 的 `IValueObject<string>`；`Of(...)`、底层值转换、相等性、`ToString()` 和 JSON
-converter 由 NOF source generator 提供。`PluginId` 会去除首尾空白并转为小写，限制为 1–128 个 ASCII 字符，只允许字母、数字、点、下划线和
-连字符，首尾必须是字母或数字；`disabled` 是宿主保留值。动态查询也要显式构造值对象：
+用方法上的 [RequestCapability] 替换旧的命名 Attribute，把完整能力列表写入 capabilities.provides。所有调用和移动按钮改用能力名；目录消费者读取 schema 2 的 capabilities。旧 .NET 插件需要重新构建，旧 Web 插件也应更新调用与目录读取代码。
 
-```csharp
-var themeId = PluginId.Of("quantum.plugin.theme");
-if (environment.IsPluginLoaded(themeId))
-{
-    // 目标插件当前可用。
-}
-```
+## Request 与 Notify
 
-`SemanticVersion.Of(...)` 严格接受 [SemVer](glossary.md#semver) 2.0.0（必须包含 `major.minor.patch`），提供 `Major`、`Minor`、
-`Patch`、`PreReleaseIdentifiers`、`BuildMetadataIdentifiers` 和 `IsPreRelease`。三个数字字段使用 `BigInteger`，
-不会额外引入 `Int32` 上限；`CompareTo` 以及 `<`、`<=`、`>`、`>=` 按 SemVer 优先级比较，构建元数据不参与
-优先级：
+用 `IQuantumRequester.RequestAsync<T>()` 或 `context.request<T>()` 调用请求能力。统一目录 `quantum.capabilities.list` 列出 `request` 和 `notify` 能力，以及当前提供方、JSON Schema 和分发策略。.NET 使用 `DiscoverCapabilitiesAsync()`，Web 使用 `context.capabilities.catalog()`。
 
-```csharp
-var current = SemanticVersion.Of("2.1.0-rc.2+linux.arm64");
-var minimum = SemanticVersion.Of("2.1.0-beta.1");
+| 分发策略 | Request | Notify |
+| --- | --- | --- |
+| `All` | 并发请求所有匹配提供方 | 向所有匹配的观察者投递 |
+| `Ordered` | 按 `Order`、插件 ID 的顺序请求。能力声明 `AllowStop` 时，提供方可随答复请求停止 | 按观察者的 `order`、插件 ID 的顺序投递。只有声明在 `stopObservers` 中的插件能停止后续传播 |
 
-if (current >= minimum)
-{
-    Console.WriteLine(string.Join('.', current.PreReleaseIdentifiers));
-}
-```
+Request 返回 `outcomes` 和 `stopped`。每项结果带提供方插件 ID，状态为 `handled`、`pass`、`failed` 或 `timedOut`。`Pass` 表示提供方确认该请求不适用于自己。使用普通 NOF `Result` 或 `Result<T>` 的处理器返回 `Result.Fail(QuantumRequestContext.PassCode, ...)` 表达 Pass。提供方可直接返回实现 NOF `IResult` 的 `QuantumRequestResult<T>`，通过 `Answer(value)`、`Pass()` 和 `AnswerAndStop(value)` 表达行为。最后一种要求 `Ordered` 且声明 `AllowStop = true`。宿主使用同一个五秒截止时间处理整次插件请求。
 
-`VersionRange.Of(...)` 校验 manifest 中 `dependencies`/`integrations` 使用的范围，并通过 `Contains(...)` 判断版本：
+`[RequestCapability("calendar.delete", QuantumDispatch.Ordered, UniqueOwner = true)]` 声明只允许唯一归属方写入。提供方自行决定请求是否适用于自己。链遇到第一项非 Pass 即停止。新增资源尚无 ID 时可以声明 `RequireSingleProvider`，有多个候选方时宿主会拒绝写入。
 
-```csharp
-var range = VersionRange.Of("{1.2.3} | [1.3.0,1.4.0) | (1.4.0,1.5.0)");
-var compatible = range.Contains(SemanticVersion.Of("1.2.3+linux-x64")); // true
-```
+在 `plugin.json` 的 `capabilities.provides` 中列出能力名。Notify 的 `capabilities.notifications` 声明 `messageSchema`、可选的 `dispatch`（默认 `all`）和 `stopObservers`。.NET 用 `IQuantumNotifier.Observe()` 或 Web 用 `context.notify.subscribe()` 注册可停止的观察者。观察者异常会被记录，其他观察者仍会收到通知。通知在本机内存投递。
 
-它支持有界或无界区间、有限版本集合以及 `|` 并集；`(,)` 和 `*` 均表示全部版本。预发布版本直接按 SemVer
-precedence 参与范围比较，构建元数据完全不参与比较。
+`RequestSingleAsync<T>()` 可将 Request 报告投影为单个结果。它拒绝多个非 Pass 结果。SDK 的 Roslyn Analyzer 检查缺失的声明（QTM001）、无效的分发策略（QTM002）、不支持的返回类型（QTM003），以及 Handler 直接调用 `AnswerAndStop` 时缺少 `AllowStop` 的情况（QTM004）。
 
-三个值对象通过 NOF 生成的 JSON converter 序列化为字符串，所以 EventBus envelope 和 Web Host 协议的字段形状保持不变。
+.NET 和 Web 都能发起 Request 和发布或观察 Notify。.NET 插件通过 NOF `IRpcService`、`[TransportOverQuantum]` 和生成的 `RpcServer<T>` 提供 Request 处理器。
+
+## 插件 ID、版本和版本范围
+
+.NET 和 TypeScript 的 SDK 接口直接接收和返回字符串。可以直接调用 `environment.IsPluginLoaded("quantum.plugin.theme")`。宿主在读取插件清单时会规范化插件 ID，并校验版本和依赖范围。
+
+`PluginId.Of`、`SemanticVersion.Of` 和 `VersionRange.Of` 是 .NET 的可选校验函数，返回普通字符串。用 `SemanticVersion.Compare(left, right)` 比较 SemVer 优先级，用 `SemanticVersion.Components(version)` 读取版本各部分。构建元数据不参与优先级比较。`VersionRange.Contains(range, version)` 支持有界和无界区间、有限集合及 `|` 并集。
 
 数据库 schema 演进不属于 .NET ABI。插件可以在开发期使用 EF/NOF 模型，但发布包统一通过
-`plugin.json` 的 `database.migrations` 携带 SQLite SQL artifact；Host 在 `StartAsync` 前应用它。具体规则见
-[插件示例](../../samples)。
+`plugin.json` 的 `database.migrations` 携带 SQLite SQL artifact；Host 在 `StartAsync` 前应用它。可参考仓库中的插件示例。
 
-## Topic EventBus
+## Notify 的 JSON 载荷
 
-从插件 DI 获取 `IQuantumEventBus`，为一个 Topic 创建强类型 publisher，并持有 subscription 直到停止：
+`IQuantumNotifier.Subscribe` 和 `Observe` 统一接收 `QuantumNotification`。订阅方可以直接读取 `Payload`（`JsonElement`），也可以调用 `TryDeserialize<T>()` 转成自己的 DTO。Web 的 `context.notify.subscribe` 同样接收原始 JSON，载荷类型为 `unknown`。
+
+迁移已有的主题时，将能力名加入发布方清单的 `capabilities.provides`，并在 `capabilities.notifications` 声明其 `messageSchema`。用 `PublishAsync` / `context.notify.publish` 发送。观察者异常由 Host 记录，其他观察者继续接收。停止插件时释放订阅。
 
 ```csharp
-public sealed record DeviceStatus(string DeviceId, string State);
-
-internal sealed class DeviceEvents(IQuantumEventBus events)
+await using var subscription = notify.Subscribe("devices.status", (notification, token) =>
 {
-    private IQuantumSubscription? _statusSubscription;
-    private IQuantumPublisher<DeviceStatus>? _statusPublisher;
-
-    public async Task StartAsync(CancellationToken cancellationToken)
+    if (notification.TryDeserialize<DeviceStatus>(out var status) && status is not null)
     {
-        _statusSubscription = events.Subscribe(
-            QuantumTopic.Of("devices.status"),
-            (@event, _) =>
-            {
-                var message = @event.DeserializeRequired<DeviceStatus>();
-                Console.WriteLine($"{@event.Publisher.Id}: {message.State}");
-                return Task.CompletedTask;
-            });
-        _statusPublisher = events.CreatePublisher<DeviceStatus>(
-            QuantumTopic.Of("devices.status"));
-        await _statusPublisher.PublishAsync(
-            new DeviceStatus("camera-1", "ready"),
-            cancellationToken);
+        logger.LogInformation("Device state is {State}", status.State);
     }
 
-    public async Task StopAsync()
-    {
-        if (_statusSubscription is not null)
-        {
-            await _statusSubscription.DisposeAsync();
-            _statusSubscription = null;
-        }
-    }
-}
+    return Task.CompletedTask;
+});
+
+await notify.PublishAsync("devices.status", new { state = "ready" }, cancellationToken);
 ```
 
-Topic 是 NOF 的 `IValueObject<string>` 值对象，通过 `QuantumTopic.Of(...)` 创建并在边界完成校验。它使用点分层级，
-例如 `devices.camera.status`，最大长度 255，并且必须匹配
-`^[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9][A-Za-z0-9_-]*)*$`。
-EventBus 是 Host 内的即时分发，不持久化、不重放：`PublishAsync` 等待发布时已经存在的订阅回调完成，并在回调失败时
-报告 `AggregateException`。消息先写入 JSON envelope，再由 NOF `InMemoryEventHandler` 转发。
+## 安装插件
 
-publisher 的 `TMessage` 只定义插件一侧的 CLR 序列化契约，不是路由键，也不会以 CLR 类型标识写入 envelope。因此
-不同插件 ALC 可以用各自的 CLR 类型消费同一 Topic，只要 JSON 字段兼容。订阅统一接收 `QuantumEvent`，可直接读取
-`Payload`，也可按需调用 `Deserialize<T>()`、`DeserializeRequired<T>()`、`Deserialize(Type)` 或
-`TryDeserialize<T>()`：
+通过 `IQuantumRequester` 使用 `InstallMarketplacePluginAsync`、`InstallLocalPluginAsync` 和 `GetPluginInstallStatusAsync`。宿主征得用户同意后返回 `pending` 和操作 ID。保存 ID 并让当前处理器返回，同一插件可在重载后查询结果。
 
-```csharp
-await using var raw = events.Subscribe(
-    QuantumTopic.Of("devices.status"),
-    (@event, _) =>
-    {
-        var state = @event.Payload.GetProperty("state").GetString();
-        var message = @event.DeserializeRequired<DeviceStatus>();
-        return Task.CompletedTask;
-    });
-```
-
-对象引用和私有 CLR 类型身份不会跨插件传递。
-
-Host 会在插件停止时暂停该运行代的收发，并在容器释放时兜底移除订阅。插件仍应在 `StopAsync` 主动释放
-`IQuantumSubscription`，这样热切换失败并回滚旧运行代时，`StartAsync` 可以无重复订阅地重新建立监听。
-
-宿主从入口程序集发现 `IQuantumPlugin` 实现类型。构建容器前，宿主先执行程序集中的所有 NOF
-`IAssemblyInitializer`，再通过静态接口分派调用每个 bootstrap 的 `ConfigureServices`；两条服务注册链路都会执行，
-后者可以追加或覆盖生成注册。`ConfigureServices` 有默认空实现。bootstrap 不注册到 DI，也不会创建实例。
-容器构建后，宿主通过静态接口分派调用 `StartAsync` 和 `StopAsync`，两个方法收到同一个运行期 scoped provider，
-runtime 释放时一并释放该 scope。主插件 scope 内 `Singleton` 与 `Scoped`
-通常表现相近，但 `Scoped` 可以避免服务被错误地从根 provider 解析。插件 RPC 按调用创建独立 scope，因而需要
-跨 RPC 共享的状态应使用 `Singleton`。
-
-RPC 调用方只持有 Host 提供的 `IRpcInvoker`，不会缓存目标 provider、Handler 或服务实例。Host 在运行代停止时先撤销
-路由并等待在途调用结束，再释放目标 scope/container 和 collectible ALC。
-
-纯 JavaScript/TypeScript 插件使用同级目录中的 `typescript` SDK。该 SDK 提供与 .NET 共用的 Topic EventBus，以及
-隔离 [iframe](glossary.md#iframe) 生命周期、路由挂载、资源、导航、环境信息和同一套名称路由 RPC；详细说明见插件开发文档中的
-Web 插件章节。
-
-## 获取 SDK
-
-.NET 插件使用 NuGet 包 `Quantum.Plugin.Abstraction`；Web 插件使用 npm 包 `@io7/quantum-plugin-sdk`。
-两个 SDK 使用相同的版本号。开发插件时请选择与目标 Quantum 版本兼容的 SDK，并固定依赖版本，
-升级前检查对应版本的兼容性说明。
-
-## RPC 调用与注册
-
-跨插件调用直接使用 `IRpcInvoker.InvokeAsync<T>("calendar.get", request, Context.Empty, cancellationToken)`；TypeScript 使用 `ctx.rpc.invoke<T>("calendar.get", request, {}, options)`。宿主按能力名路由，无需先绑定提供者。UI 可通过 `.GetCatalogAsync()` / `ctx.rpc.catalog()` 逐项检查能力是否可用，不要求来自同一插件。只有显式指定实现时才使用 qualified name。
-
-.NET 调用返回 NOF `Result<T>`，TypeScript 调用返回 `QuantumResult<T>`。检查 IsSuccess / isSuccess 后再读取值并更新 UI；失败保留错误码、英文消息和 extra，取消继续传播。
-
-需要托管 NOF RpcServer 的 .NET 插件直接引用 `NOF.Application`，调用原生 `services.AddRpcServer<TServer>()`。该入口从 NOF `11.0.0-nightly.1473609.75efa591` 起提供；SDK 不重复实现服务注册，也不为此依赖 NOF.Application。隔离 Web 插件不托管本地 NOF RpcServer，因此没有对应的 TypeScript 注册入口。
+参见[移动界面](mobile-ui.md)和[术语表](glossary.md)。

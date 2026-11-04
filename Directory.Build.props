@@ -3,4 +3,8 @@
     <LangVersion>latest</LangVersion>
     <AnalysisLevel>latest</AnalysisLevel>
   </PropertyGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Quantum.Plugin.Analyzers' and '$(QuantumSdkPackageVersion)' == ''">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)dotnet/src/Quantum.Plugin.Analyzers/Quantum.Plugin.Analyzers.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
 </Project>

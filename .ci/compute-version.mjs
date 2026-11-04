@@ -7,7 +7,9 @@ const semverPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\
 
 export function parseVersion(value) {
   const match = semverPattern.exec(value);
-  if (!match) return undefined;
+  if (!match) {
+    return undefined;
+  }
   return {
     value,
     major: BigInt(match[1]),
@@ -19,31 +21,51 @@ export function parseVersion(value) {
 
 export function compareCore(left, right) {
   for (const key of ["major", "minor", "patch"]) {
-    if (left[key] < right[key]) return -1;
-    if (left[key] > right[key]) return 1;
+    if (left[key] < right[key]) {
+      return -1;
+    }
+    if (left[key] > right[key]) {
+      return 1;
+    }
   }
   return 0;
 }
 
 export function compareVersions(left, right) {
   const core = compareCore(left, right);
-  if (core !== 0) return core;
-  if (!left.prerelease && !right.prerelease) return 0;
-  if (!left.prerelease) return 1;
-  if (!right.prerelease) return -1;
+  if (core !== 0) {
+    return core;
+  }
+  if (!left.prerelease && !right.prerelease) {
+    return 0;
+  }
+  if (!left.prerelease) {
+    return 1;
+  }
+  if (!right.prerelease) {
+    return -1;
+  }
 
   const leftParts = left.prerelease.split(".");
   const rightParts = right.prerelease.split(".");
   for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index += 1) {
-    if (leftParts[index] === undefined) return -1;
-    if (rightParts[index] === undefined) return 1;
-    if (leftParts[index] === rightParts[index]) continue;
+    if (leftParts[index] === undefined) {
+      return -1;
+    }
+    if (rightParts[index] === undefined) {
+      return 1;
+    }
+    if (leftParts[index] === rightParts[index]) {
+      continue;
+    }
     const leftNumeric = /^\d+$/.test(leftParts[index]);
     const rightNumeric = /^\d+$/.test(rightParts[index]);
     if (leftNumeric && rightNumeric) {
       return BigInt(leftParts[index]) < BigInt(rightParts[index]) ? -1 : 1;
     }
-    if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+    if (leftNumeric !== rightNumeric) {
+      return leftNumeric ? -1 : 1;
+    }
     return leftParts[index] < rightParts[index] ? -1 : 1;
   }
   return 0;
@@ -57,7 +79,9 @@ export function computeNightlyVersion(tags, initialVersion, date, runNumber) {
     .sort(compareVersions);
 
   const initial = parseVersion(initialVersion.replace(/^v/, ""));
-  if (!initial) throw new Error(`Invalid initial version: ${initialVersion}`);
+  if (!initial) {
+    throw new Error(`Invalid initial version: ${initialVersion}`);
+  }
 
   const base = tagged.length === 0
     ? initial
@@ -78,7 +102,9 @@ function main() {
   const recoveryVersion = process.env.RECOVERY_VERSION?.trim();
   if (recoveryVersion) {
     const version = parseVersion(recoveryVersion);
-    if (!version) throw new Error(`Invalid recovery version: ${recoveryVersion}`);
+    if (!version) {
+      throw new Error(`Invalid recovery version: ${recoveryVersion}`);
+    }
     output("publish", "true");
     output("version", version.value);
     output("channel", "recovery");

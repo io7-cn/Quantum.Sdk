@@ -4,6 +4,9 @@
   "entryAssembly": "Quantum.ExamplePlugin.dll",
   "dependencies": [],
   "integrations": [],
+  "capabilities": {
+    "provides": ["example.greet", "example.handshake", "example.suggestions"]
+  },
   "ui": {
     "routes": [
       {
