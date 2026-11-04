@@ -14,7 +14,7 @@ services.GetRequiredService<IQuantumMobilePages>().Publish(
     Ui.Page("quick-note", "Quick note", Ui.VStack("root",
         Ui.TextField("content").Hint("Content").Limit(500),
         Ui.Button("save", "Save").OnClick(
-            Ui.Rpc("quantum.plugin.notes.notes.create")
+            Ui.Request("notes.create")
               .Constant("notebookId", "inbox")
               .Input("text", "content")))));
 ```
@@ -27,7 +27,7 @@ export default definePlugin({
     const page = Mobile.page("quick-note", "Quick note", Mobile.vStack("root",
       Mobile.textField("content").hint("Content").limit(500),
       Mobile.button("save", "Save").onClick(
-        Mobile.rpc("quantum.plugin.notes.notes.create")
+        Mobile.request("notes.create")
           .constant("notebookId", "inbox").input("text", "content"))));
     validateMobilePage(page);
     await context.mobile.publish(page);
@@ -38,7 +38,7 @@ export default definePlugin({
 
 Publishing the same page ID replaces the page and invalidates its old actions. Remove the page when the plugin stops. The host also removes Web pages when it disposes their frame. Publishing is synchronous in .NET and asynchronous in Web plugins. Mobile users refresh the view explicitly.
 
-Actions require a fully qualified remote call name and an active target. Inputs bind control values to top-level request fields. Constant and input fields cannot overlap. Use JSON values for constants. Pages support up to 500 nodes, 16 levels and 128 KiB. Strings have a 2,000-character limit and action input has a 16 KiB limit, excluding attachments. A call that reached the handler may have an unknown result after a network interruption. Handlers that need stronger guarantees can deduplicate by request ID.
+Actions use a request capability name and need an active provider. The host binds the button to the selected provider while the page is open. Inputs bind control values to top-level request fields. Constant and input fields cannot overlap. Use JSON values for constants. Pages support up to 500 nodes, 16 levels and 128 KiB. Strings have a 2,000-character limit and action input has a 16 KiB limit, excluding attachments. A call that reached the handler may have an unknown result after a network interruption. Handlers that need stronger guarantees can deduplicate by request ID.
 
 Use `Mobile.Attachments(id)` or `Mobile.attachments(id)` to declare a native file, image or voice picker. Pages with an attachment control use schema 2. Other pages use schema 1. Bind the picker to a `MobileAttachment[]` request property in .NET. Each entry carries `name`, `contentType` and `dataBase64`. The limits are four files, 8 MiB per file and 16 MiB total. Schema 2 requires a compatible desktop and mobile client.
 

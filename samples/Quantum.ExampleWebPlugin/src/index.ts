@@ -1,4 +1,4 @@
-import { definePlugin, QuantumTopic } from "@io7/quantum-plugin-sdk";
+import { definePlugin } from "@io7/quantum-plugin-sdk";
 
 interface ExamplePluginHandshake {
   message: string;
@@ -10,14 +10,14 @@ interface ExamplePluginHandshake {
 export default definePlugin({
   async activate(context) {
     await context.log.info("TypeScript example activated");
-    const topic = QuantumTopic.of("example.web.status");
-    const subscription = await context.eventBus.subscribe(topic, event => {
-      const payload = event.payload as { state?: string };
-      return context.log.info(
-        `${event.publisher.id} published ${payload.state ?? "unknown"} to ${event.topic}`);
-    });
-    const publisher = context.eventBus.createPublisher<{ state: string }>(topic);
-    await publisher.publish({ state: "activated" });
+    const notification = "example.web.status";
+    const subscription = await context.notify.subscribe(notification, event => {
+      const payload = event.payload;
+      if (payload !== null && typeof payload === "object" && "state" in payload && typeof payload.state === "string") {
+        return context.log.info(`${event.publisher.id} published ${payload.state} to ${event.capabilityName}`);
+      }
+    }, { signal: context.signal });
+    await context.notify.publish(notification, { state: "activated" }, { signal: context.signal });
     return async () => {
       await subscription.dispose();
       await context.log.info("TypeScript example deactivated");
@@ -49,6 +49,12 @@ export default definePlugin({
           <strong>${text.interopHeading}</strong>
           <p data-handshake-status>${text.waitingForEnvironment}</p>
         </div>
+        <div class="interop">
+          <strong>${text.collectHeading}</strong>
+          <p role="status" data-collect-status></p>
+          <ul data-collect-results></ul>
+          <button type="button" data-action="collect">${text.collectButton}</button>
+        </div>
         <div class="actions">
           <button type="button" data-action="handshake">${text.handshakeAgain}</button>
           <button type="button" class="secondary" data-action="dotnet">${text.openDotNet}</button>
@@ -77,15 +83,19 @@ export default definePlugin({
         if (status) {
           status.textContent = text.connecting;
         }
-        const result = await context.rpc.invoke<ExamplePluginHandshake>(
-          "sample.handshake",
+        const result = await context.request<ExamplePluginHandshake>(
+          "example.handshake",
           {},
           {},
           { signal: context.signal });
         if (!result.isSuccess) {
           throw new Error(`${result.errorCode}: ${result.message}`);
         }
-        const handshake = result.value;
+        const [outcome] = result.value.outcomes;
+        if (result.value.outcomes.length !== 1 || outcome?.status !== "handled" || !outcome.value) {
+          throw new Error(outcome?.message ?? "No provider returned a handshake.");
+        }
+        const handshake = outcome.value;
         if (status) {
           status.textContent = handshake.message;
         }
@@ -100,6 +110,48 @@ export default definePlugin({
         }
       }
     };
+
+    const collectButton = context.element.querySelector<HTMLButtonElement>("[data-action=collect]");
+    const collectStatus = context.element.querySelector<HTMLElement>("[data-collect-status]");
+    const collectResults = context.element.querySelector<HTMLUListElement>("[data-collect-results]");
+
+    collectButton?.addEventListener("click", async () => {
+      if (!collectStatus || !collectResults) {
+        return;
+      }
+
+      collectButton.disabled = true;
+      collectStatus.textContent = text.collecting;
+      collectResults.replaceChildren();
+      try {
+        const result = await context.request<string>(
+          "example.suggestions", { topic: "getting-started" }, {}, { signal: context.signal });
+        if (!result.isSuccess) {
+          throw new Error(result.message);
+        }
+        if (context.signal.aborted) {
+          return;
+        }
+
+        collectStatus.textContent = result.value.outcomes.length === 0 ? text.noContributors : "";
+        for (const contribution of result.value.outcomes) {
+          const row = document.createElement("li");
+          const detail = contribution.status === "handled"
+            ? contribution.value
+            : text.contributionStatus[contribution.status];
+          row.textContent = contribution.providerPluginId + " · " + detail;
+          collectResults.append(row);
+        }
+      } catch (error) {
+        if (!context.signal.aborted) {
+          collectStatus.textContent = text.collectFailed(errorMessage(error));
+        }
+      } finally {
+        if (!context.signal.aborted) {
+          collectButton.disabled = false;
+        }
+      }
+    }, { signal: context.signal });
 
     const initializeInterop = async () => {
       try {
@@ -156,6 +208,12 @@ interface ExampleMessages {
   readonly readingEnvironment: string;
   readonly waitingForEnvironment: string;
   readonly handshakeAgain: string;
+  readonly collectHeading: string;
+  readonly collectButton: string;
+  readonly collecting: string;
+  readonly noContributors: string;
+  readonly contributionStatus: Readonly<Record<"pass" | "failed" | "timedOut", string>>;
+  collectFailed(message: string): string;
   readonly openDotNet: string;
   readonly backHome: string;
   readonly dotNetUnavailable: string;
@@ -175,6 +233,12 @@ function createMessages(languageName: string): ExampleMessages {
       readingEnvironment: "正在检查已安装插件…",
       waitingForEnvironment: "等待连接…",
       handshakeAgain: "重新连接",
+      collectHeading: "入门建议",
+      collectButton: "收集建议",
+      collecting: "正在收集建议…",
+      noContributors: "当前没有可用的建议提供方。",
+      contributionStatus: { pass: "跳过", failed: "答复失败", timedOut: "答复超时" },
+      collectFailed: message => "收集失败：" + message,
       openDotNet: "打开 .NET 示例",
       backHome: "返回概览",
       dotNetUnavailable: "示例插件未安装。",
@@ -194,6 +258,12 @@ function createMessages(languageName: string): ExampleMessages {
     readingEnvironment: "Checking installed plugins…",
     waitingForEnvironment: "Waiting to connect…",
     handshakeAgain: "Connect again",
+    collectHeading: "Getting started suggestions",
+    collectButton: "Collect suggestions",
+    collecting: "Collecting suggestions…",
+    noContributors: "No suggestion contributors are available.",
+    contributionStatus: { pass: "Skipped", failed: "Failed", timedOut: "Timed out" },
+    collectFailed: message => "Collection failed: " + message,
     openDotNet: "Open .NET example",
     backHome: "Back to overview",
     dotNetUnavailable: "The example plugin is not installed.",

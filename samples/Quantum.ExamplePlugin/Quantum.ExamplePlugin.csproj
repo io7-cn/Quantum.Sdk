@@ -7,8 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Condition="'$(QuantumSdkPackageVersion)' == ''" Include="../../dotnet/src/Quantum.Plugin.Abstraction/Quantum.Plugin.Abstraction.csproj" />
-    <PackageReference Condition="'$(QuantumSdkPackageVersion)' != ''" Include="Quantum.Plugin.Abstraction" />
+    <ProjectReference Include="../../dotnet/src/Quantum.Plugin.Abstraction/Quantum.Plugin.Abstraction.csproj" Condition="'$(QuantumSdkPackageVersion)' == ''" />
+    <PackageReference Include="Quantum.Plugin.Abstraction" Condition="'$(QuantumSdkPackageVersion)' != ''" />
   </ItemGroup>
 
   <ItemGroup>

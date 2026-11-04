@@ -1,6 +1,6 @@
 {
   "name": "@io7/quantum-plugin-sdk",
-  "version": "0.1.1",
+  "version": "0.3.0",
   "description": "TypeScript SDK for isolated Quantum Web plugins",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +13,9 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "src",
+    "README.md",
+    "NOTICE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -24,7 +26,7 @@
     "plugin",
     "typescript"
   ],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
   },

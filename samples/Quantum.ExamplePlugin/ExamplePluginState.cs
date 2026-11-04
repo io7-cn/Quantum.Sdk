@@ -49,7 +49,7 @@ public sealed class ExamplePluginState
         IsRunning = false;
     }
 
-    internal string CreateDependencyGreeting(PluginId callerPluginId)
+    internal string CreateDependencyGreeting(string callerPluginId)
     {
         if (!IsRunning || StartedAt is null)
         {
@@ -57,8 +57,8 @@ public sealed class ExamplePluginState
         }
 
         return IsChinese
-            ? $"你好，{callerPluginId}！这条消息来自 {PluginId.Of("quantum.plugin.example")} 的 DI 服务。"
-            : $"Hello, {callerPluginId}! This message comes from the DI service in {PluginId.Of("quantum.plugin.example")}.";
+            ? $"你好，{callerPluginId}！这条消息来自 quantum.plugin.example 的 DI 服务。"
+            : $"Hello, {callerPluginId}! This message comes from the DI service in quantum.plugin.example.";
     }
 
     internal Task<ExamplePluginHandshake> CreateWebHandshakeAsync(
@@ -72,10 +72,10 @@ public sealed class ExamplePluginState
             throw new InvalidOperationException("The .NET example plugin is not running.");
         }
 
-        string normalizedPluginId = webPluginId.Trim();
-        int sequence = Interlocked.Increment(ref _webHandshakeCount);
+        var normalizedPluginId = webPluginId.Trim();
+        var sequence = Interlocked.Increment(ref _webHandshakeCount);
         Volatile.Write(ref _lastWebPluginId, normalizedPluginId);
-        string message = IsChinese
+        var message = IsChinese
             ? $"已连接到 {normalizedPluginId}。"
             : $"Connected to {normalizedPluginId}.";
         return Task.FromResult(new ExamplePluginHandshake(

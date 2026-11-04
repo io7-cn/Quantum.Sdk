@@ -12,7 +12,7 @@
       {
         "type": "Button", "id": "save", "text": "Save to desktop",
         "action": {
-          "rpcName": "quantum.plugin.notes.notes.create",
+          "capabilityName": "notes.create",
           "constants": { "notebookId": "inbox" },
           "inputs": { "text": "content", "pinned": "pinned" }
         }

@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { compareVersions, parseVersion } from "./compute-version.mjs";
 
 const candidate = parseVersion(process.argv[2]);
-if (!candidate) throw new Error(`Invalid candidate version: ${process.argv[2]}`);
+if (!candidate) {
+  throw new Error(`Invalid candidate version: ${process.argv[2]}`);
+}
 
 const published = process.argv.slice(3)
   .flatMap(path => {

@@ -5,9 +5,9 @@ namespace Quantum.Plugin.Abstraction;
 
 public static partial class MobileUiValidator
 {
-    private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     public const int MaximumPageBytes = 128 * 1024;
-    private static readonly HashSet<string> _supportedTypes = ["VStack", "HStack", "Scroll", "Text", "TextField", "Attachments", "Toggle", "Button", "Divider", "Spacer", "Progress"];
+    private static readonly HashSet<string> Types = ["VStack", "HStack", "Scroll", "Text", "TextField", "Attachments", "Toggle", "Button", "Divider", "Spacer", "Progress"];
     [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$", RegexOptions.CultureInvariant)]
     private static partial Regex IdPattern();
     public static void Id(string value)
@@ -28,7 +28,7 @@ public static partial class MobileUiValidator
 
         var nodes = new Dictionary<string, MobileNode>(StringComparer.Ordinal);
         visit(page.Root, 1);
-        foreach (MobileNode node in nodes.Values)
+        foreach (var node in nodes.Values)
         {
             if (node.Type != "Button" && node.Action is not null)
             {
@@ -40,10 +40,9 @@ public static partial class MobileUiValidator
                 continue;
             }
 
-            if (action.RpcName is null || action.RpcName.Length > 256 || action.RpcName.Split('.').Length < 3 ||
-                !Regex.IsMatch(action.RpcName, "^[A-Za-z0-9_.-]+$"))
+            if (!CapabilityName.IsPluginCapability(action.CapabilityName))
             {
-                throw new ArgumentException("Use a fully qualified RPC name.");
+                throw new ArgumentException("Expected a plugin capability name.");
             }
 
             if (action.Constants is null || action.Inputs is null || action.Constants.Count + action.Inputs.Count > 32)
@@ -51,20 +50,20 @@ public static partial class MobileUiValidator
                 throw new ArgumentException("Invalid action fields.");
             }
 
-            foreach (string? field in action.Constants.Keys.Concat(action.Inputs.Keys))
+            foreach (var field in action.Constants.Keys.Concat(action.Inputs.Keys))
             {
                 Id(field);
             }
 
-            foreach ((string? field, string? source) in action.Inputs)
+            foreach (var (field, source) in action.Inputs)
             {
-                if (action.Constants.ContainsKey(field) || !nodes.TryGetValue(source, out MobileNode? input) || input.Type is not ("TextField" or "Attachments" or "Toggle"))
+                if (action.Constants.ContainsKey(field) || !nodes.TryGetValue(source, out var input) || input.Type is not ("TextField" or "Attachments" or "Toggle"))
                 {
                     throw new ArgumentException("Invalid or overlapping input mapping.");
                 }
             }
         }
-        if (JsonSerializer.SerializeToUtf8Bytes(page, _jsonOptions).Length > MaximumPageBytes)
+        if (JsonSerializer.SerializeToUtf8Bytes(page, JsonOptions).Length > MaximumPageBytes)
         {
             throw new ArgumentException("Mobile page exceeds 128 KiB.");
         }
@@ -84,7 +83,7 @@ public static partial class MobileUiValidator
                 throw new ArgumentException("Attachments require mobile schema 2.");
             }
 
-            if (!_supportedTypes.Contains(node.Type) || !nodes.TryAdd(node.Id, node) || node.Children is null ||
+            if (!Types.Contains(node.Type) || !nodes.TryAdd(node.Id, node) || node.Children is null ||
                 node.Text?.Length > 2000 || node.Placeholder?.Length > 2000 || node.MaxLength is < 1 or > 2000 ||
                 node.Style is not ("body" or "title" or "caption" or "error"))
             {
@@ -97,7 +96,7 @@ public static partial class MobileUiValidator
                 throw new ArgumentException("Invalid mobile children.");
             }
 
-            foreach (MobileNode child in node.Children)
+            foreach (var child in node.Children)
             {
                 visit(child, depth + 1);
             }

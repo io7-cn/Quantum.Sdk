@@ -20,7 +20,7 @@ services.GetRequiredService<IQuantumMobilePages>().Publish(
     Ui.Page("quick-note", "Quick note", Ui.VStack("root",
         Ui.TextField("content").Hint("Content").Limit(500),
         Ui.Button("save", "Save").OnClick(
-            Ui.Rpc("quantum.plugin.notes.notes.create")
+            Ui.Request("notes.create")
               .Constant("notebookId", "inbox")
               .Input("text", "content")))));
 ```
@@ -37,7 +37,7 @@ export default definePlugin({
     const page = Mobile.page("quick-note", "Quick note", Mobile.vStack("root",
       Mobile.textField("content").hint("Content").limit(500),
       Mobile.button("save", "Save").onClick(
-        Mobile.rpc("quantum.plugin.notes.notes.create")
+        Mobile.request("notes.create")
           .constant("notebookId", "inbox").input("text", "content"))));
     validateMobilePage(page);
     await context.mobile.publish(page);
@@ -50,7 +50,7 @@ TS 的 publish/remove 是实际 [iframe](glossary.md#iframe)→Host capability�
 
 ## 动作规则
 
-- RPC 必须是完整 `pluginId.service.method`，不接受短名或 Alias；当前目标需已启动。按钮绑定在打开手机页面时固定到目标运行代。
+- 按钮按请求能力名调用，例如 `notes.create`。宿主打开页面时绑定已启动的提供方，提供方替换后需刷新页面。
 - 常量与输入字段不能重叠；Input 的 source 必须是页面内 TextField/Toggle ID。首版不支持嵌套路径、模板表达式、脚本或动态方法名。
 - .NET Constant 接受 JSON 基本值或 JsonElement；结构化常量先由插件自己的序列化器转成 JsonElement，避免协议层持有插件私有 CLR 类型。TS 常量直接使用等价 JSON 数据。
 - 控件 ID、页面 ID 和参数字段使用 1–128 个字母、数字、点、下划线、连字符，首字符是字母或数字。

@@ -2,12 +2,7 @@
   "id": "quantum.plugin.example-dependent",
   "version": "0.1.0",
   "entryAssembly": "Quantum.ExampleDependentPlugin.dll",
-  "dependencies": [
-    {
-      "id": "quantum.plugin.example",
-      "versionRange": "[0.1.0,)"
-    }
-  ],
+  "capabilities": { "requires": ["example.greet"] },
   "integrations": [],
   "ui": {
     "routes": [

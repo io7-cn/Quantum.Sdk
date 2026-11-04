@@ -9,30 +9,11 @@ public sealed record MobileNode
     public string Style { get; set; } = "body";
     public int MaxLength { get; set; } = 500;
     public bool Enabled { get; set; } = true;
-    public MobileRpcAction? Action { get; set; }
+    public MobileRequestAction? Action { get; set; }
     public MobileNode[] Children { get; set; } = [];
-    public MobileNode Label(string text)
-    {
-        return this with { Text = text };
-    }
-
-    public MobileNode Hint(string text)
-    {
-        return this with { Placeholder = text };
-    }
-
-    public MobileNode Limit(int length)
-    {
-        return this with { MaxLength = length };
-    }
-
-    public MobileNode Appearance(string style)
-    {
-        return this with { Style = style };
-    }
-
-    public MobileNode OnClick(MobileRpcAction action)
-    {
-        return this with { Action = action };
-    }
+    public MobileNode Label(string text) => this with { Text = text };
+    public MobileNode Hint(string text) => this with { Placeholder = text };
+    public MobileNode Limit(int length) => this with { MaxLength = length };
+    public MobileNode Appearance(string style) => this with { Style = style };
+    public MobileNode OnClick(MobileRequestAction action) => this with { Action = action };
 }

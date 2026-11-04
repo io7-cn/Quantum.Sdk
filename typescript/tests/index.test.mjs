@@ -6,19 +6,21 @@ import {
   installLocalPlugin,
   installMarketplacePlugin,
   PluginId,
-  QuantumTopic,
   SemanticVersion,
   VersionRange
 } from "../dist/index.js";
 import { readFile } from "node:fs/promises";
 
-test("installation helpers use the regular iframe RPC contract", async () => {
+test("installation helpers use the iframe Request contract", async () => {
   const calls = [];
   const options = { signal: new AbortController().signal };
-  const rpc = { invoke: async (...args) => { calls.push(args); return { isSuccess: true }; } };
-  await installMarketplacePlugin(rpc, "quantum.plugin.example", options);
-  await installLocalPlugin(rpc, "example.zip", "UEs=", options);
-  await getPluginInstallStatus(rpc, "operation", options);
+  const context = { request: async (...args) => {
+    calls.push(args);
+    return { isSuccess: true, value: { outcomes: [{ status: "handled", value: { operationId: "operation" } }] } };
+  } };
+  await installMarketplacePlugin(context, "quantum.plugin.example", options);
+  await installLocalPlugin(context, "example.zip", "UEs=", options);
+  await getPluginInstallStatus(context, "operation", options);
   assert.deepEqual(calls, [
     ["quantum.plugins.installmarketplace", { pluginId: "quantum.plugin.example" }, {}, options],
     ["quantum.plugins.installlocal", { archiveFileName: "example.zip", archiveBase64: "UEs=" }, {}, options],
@@ -35,26 +37,21 @@ test("definePlugin preserves the lifecycle definition", () => {
   assert.equal(definePlugin(definition), definition);
 });
 
-test("RPC catalog types and helper are part of the public declarations", async () => {
-  const declarations = await readFile(new URL("../dist/index.d.ts", import.meta.url), "utf8");
+test("the plugin context exposes Request, Notify and discovery", async () => {
+  const declarations = async path => readFile(new URL(`../dist/${path}.d.ts`, import.meta.url), "utf8");
+  const [index, context, notify, catalog] = await Promise.all([
+    declarations("index"), declarations("runtime/plugin"),
+    declarations("capabilities/notify"), declarations("capabilities/catalog")
+  ]);
 
-  assert.match(declarations, /interface QuantumRpcCatalog/);
-  assert.match(declarations, /catalogRpcName: "quantum\.rpc\.catalog"/);
-  assert.match(declarations, /catalog\(options\?: QuantumRpcOptions\): Promise<QuantumResult<QuantumRpcCatalog>>/);
-});
-
-test("QuantumTopic.of validates the dot-delimited value object", () => {
-  assert.equal(QuantumTopic.of("devices.camera.status"), "devices.camera.status");
-  assert.equal(QuantumTopic.of("device-1.camera_status.changed-v2"),
-    "device-1.camera_status.changed-v2");
-  assert.throws(() => QuantumTopic.of("devices/status"), /must match/);
-  assert.throws(() => QuantumTopic.of("devices..status"), /must match/);
-  assert.throws(() => QuantumTopic.of(" devices.status"), /must match/);
-  assert.throws(() => QuantumTopic.of("1devices.status"), /must match/);
-  assert.throws(() => QuantumTopic.of("devices._status"), /must match/);
-  assert.throws(() => QuantumTopic.of("设备.status"), /must match/);
-  assert.throws(() => QuantumTopic.of("devices.status\n"), /must match/);
-  assert.throws(() => QuantumTopic.of("a".repeat(256)), /255/);
+  assert.match(index, /export \* from ".\/capabilities\/notify\.js"/);
+  assert.match(context, /readonly capabilities: QuantumCapabilities/);
+  assert.match(context, /readonly notify: QuantumNotifier/);
+  assert.doesNotMatch(context, /QuantumCollector|QuantumRpcInvoker|eventBus/);
+  assert.match(notify, /readonly payload: unknown/);
+  assert.match(notify, /handler: \(notification: QuantumNotification\)/);
+  assert.match(catalog, /schemaVersion: 2/);
+  assert.match(catalog, /capabilities: readonly QuantumCapabilityDescription\[\]/);
 });
 
 test("PluginId.of normalizes and validates plugin identifiers", () => {

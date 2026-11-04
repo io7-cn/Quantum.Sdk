@@ -21,7 +21,7 @@ public sealed class CreateDependencyGreeting(ExamplePluginState state)
         }
 
         return Task.FromResult<Result<string>>(
-            state.CreateDependencyGreeting(PluginId.Of(callerPluginId)));
+            state.CreateDependencyGreeting(callerPluginId));
     }
 }
 
@@ -44,5 +44,24 @@ public sealed class CreateWebHandshake(ExamplePluginState state)
         return await state
             .CreateWebHandshakeAsync(callerPluginId, cancellationToken)
             .ConfigureAwait(false);
+    }
+}
+
+public sealed class ExampleSuggestionContributor : ExamplePluginRpcService.Suggest
+{
+    public override Task<QuantumRequestResult<string>> HandleAsync(
+        ExampleSuggestionRequest request,
+        Context context,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (request.Topic != "getting-started")
+        {
+            return Task.FromResult(QuantumRequestResult<string>.Pass());
+        }
+
+        return Task.FromResult(QuantumRequestResult<string>.AnswerAndStop(
+            "Open the .NET example to see how many Web handshakes it has received."));
     }
 }

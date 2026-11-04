@@ -7,6 +7,20 @@
   },
   "dependencies": [],
   "integrations": [],
+  "capabilities": {
+    "provides": ["example.web.status"],
+    "integrates": ["example.handshake", "example.suggestions"],
+    "notifications": {
+      "example.web.status": {
+        "description": "Reports the Web example's activation state.",
+        "messageSchema": {
+          "type": "object",
+          "properties": { "state": { "type": "string" } },
+          "required": ["state"]
+        }
+      }
+    }
+  },
   "ui": {
     "routes": [
       {
