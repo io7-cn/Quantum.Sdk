@@ -1,0 +1,23 @@
+{
+  "id": "quantum.plugin.example-web",
+  "version": "0.1.0",
+  "runtime": {
+    "kind": "web",
+    "entry": "dist/plugin.js"
+  },
+  "dependencies": [],
+  "integrations": [],
+  "ui": {
+    "routes": [
+      {
+        "path": "/plugins/example-web",
+        "view": "main",
+        "title": "TypeScript 示例",
+        "titles": { "en-US": "TypeScript example" },
+        "icon": "TS",
+        "order": 110,
+        "showInNavigation": true
+      }
+    ]
+  }
+}

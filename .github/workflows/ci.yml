@@ -1,0 +1,44 @@
+name: Verify SDK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: |
+            typescript/package-lock.json
+            samples/Quantum.ExampleWebPlugin/package-lock.json
+      - run: dotnet restore Quantum.Sdk.slnx
+      - run: dotnet format Quantum.Sdk.slnx --no-restore --verify-no-changes
+      - run: dotnet test Quantum.Sdk.slnx -c Release --no-restore
+      - run: dotnet build Quantum.Sdk.slnx -c Release --no-restore
+      - run: npm ci --prefix typescript
+      - run: npm test --prefix typescript
+      - run: npm ci --prefix samples/Quantum.ExampleWebPlugin
+      - run: npm test --prefix samples/Quantum.ExampleWebPlugin
+      - run: node --test .ci/compute-version.test.mjs
+      - run: npm pack --dry-run ./typescript
+      - name: Verify the NuGet package and compile both samples against it
+        run: |
+          version=0.0.0-ci
+          dotnet pack dotnet/src/Quantum.Plugin.Abstraction/Quantum.Plugin.Abstraction.csproj -c Release --no-restore -p:PackageVersion="$version" -p:ContinuousIntegrationBuild=true -o artifacts/sdk
+          python3 .ci/verify-sdk-package.py artifacts/sdk
+          for name in Quantum.ExamplePlugin Quantum.ExampleDependentPlugin; do
+            dotnet build "samples/$name/$name.csproj" -c Release -p:QuantumSdkPackageVersion="$version" -p:RestoreAdditionalProjectSources="$PWD/artifacts/sdk"
+          done

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Quantum.Plugin.Abstraction</AssemblyName>
+    <PackageId>Quantum.Plugin.Abstraction</PackageId>
+    <Description>The .NET contracts for developing plugins for Quantum Desktop.</Description>
+    <Version>0.1.1</Version>
+    <Authors>Quantum contributors</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>quantum;plugin;sdk</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/io7-cn/Quantum.Sdk</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IsPackable>true</IsPackable>
+    <PathMap Condition="'$(Configuration)' == 'Release' and '$(PathMap)' == ''">$(MSBuildProjectDirectory)=/_/Quantum.Plugin.Abstraction</PathMap>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="NOF.Abstraction" />
+    <PackageReference Include="NOF.Contract" />
+    <PackageReference Include="NOF.Domain" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../../LICENSE" Pack="true" PackagePath="/" />
+    <None Include="../../../docs/en/nuget-readme.md" Pack="true" PackagePath="/README.md" />
+  </ItemGroup>
+</Project>

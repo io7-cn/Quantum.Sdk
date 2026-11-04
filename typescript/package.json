@@ -1,0 +1,44 @@
+{
+  "name": "@io7/quantum-plugin-sdk",
+  "version": "0.1.1",
+  "description": "TypeScript SDK for isolated Quantum Web plugins",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test tests/*.test.mjs"
+  },
+  "keywords": [
+    "quantum",
+    "plugin",
+    "typescript"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/io7-cn/Quantum.Sdk.git",
+    "directory": "typescript"
+  },
+  "homepage": "https://github.com/io7-cn/Quantum.Sdk#readme",
+  "bugs": "https://github.com/io7-cn/Quantum.Sdk/issues",
+  "devDependencies": {
+    "typescript": "5.9.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

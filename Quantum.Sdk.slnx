@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="dotnet/src/Quantum.Plugin.Abstraction/Quantum.Plugin.Abstraction.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Quantum.ExamplePlugin/Quantum.ExamplePlugin.csproj" />
+    <Project Path="samples/Quantum.ExampleDependentPlugin/Quantum.ExampleDependentPlugin.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="dotnet/tests/Quantum.Plugin.Abstraction.Tests/Quantum.Plugin.Abstraction.Tests.csproj" />
+  </Folder>
+</Solution>
