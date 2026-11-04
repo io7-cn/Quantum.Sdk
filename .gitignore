@@ -1,0 +1,20 @@
+**/bin/
+**/obj/
+typescript/dist/
+**/node_modules/
+artifacts/
+*.nupkg
+*.snupkg
+
+samples/Quantum.ExampleWebPlugin/wwwroot/dist/
+*.tgz
+
+# Local editor state and credentials
+.vs/
+.idea/
+*.user
+.env
+.env.*
+*.pfx
+*.p12
+*.log
