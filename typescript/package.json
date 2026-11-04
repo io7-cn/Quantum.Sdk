@@ -1,6 +1,6 @@
 {
   "name": "@io7/quantum-plugin-sdk",
-  "version": "0.3.0",
+  "version": "0.3.0-rc.2",
   "description": "TypeScript SDK for isolated Quantum Web plugins",
   "type": "module",
   "main": "./dist/index.js",

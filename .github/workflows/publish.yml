@@ -52,8 +52,11 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           mkdir -p artifacts/nuget artifacts/npm
-          dotnet pack dotnet/src/Quantum.Plugin.Abstraction/Quantum.Plugin.Abstraction.csproj -c Release -p:PackageVersion="$VERSION" -p:ContinuousIntegrationBuild=true -o artifacts/nuget
+          dotnet pack dotnet/src/Quantum.Plugin.Abstraction/Quantum.Plugin.Abstraction.csproj -c Release -p:PackageVersion="$VERSION" -p:ContinuousIntegrationBuild=true -o artifacts/nuget -warnaserror:NU5104
           python3 .ci/verify-sdk-package.py artifacts/nuget
+          for name in Quantum.ExamplePlugin Quantum.ExampleDependentPlugin; do
+            dotnet build "samples/$name/$name.csproj" -c Release -p:QuantumSdkPackageVersion="$VERSION" -p:RestoreAdditionalProjectSources="$PWD/artifacts/nuget"
+          done
           npm ci --prefix typescript
           npm run build --prefix typescript
           npm pack ./typescript --pack-destination artifacts/npm
