@@ -27,3 +27,14 @@ npm test --prefix samples/Quantum.ExampleWebPlugin
 Run `dotnet format Quantum.Sdk.slnx` to apply the root `.editorconfig` rules to C#. Use braces in C# and TypeScript control blocks, including single statements.
 
 See [.NET plugin development](dotnet-plugin-development.md), [Web plugin development](web-plugin-development.md), [Mobile UI](mobile-ui.md), [Package verification and release](packages.md), [Terminology](glossary.md) and [Contributing](CONTRIBUTING.md). The SDK is maintained by the Quantum maintainers at 艾欧柒（杭州）智能科技有限公司. Use the repository issue tracker for support and the [security reporting instructions](../../SECURITY.md) for vulnerabilities. Licensed under [Apache 2.0](../../LICENSE).
+
+## Development standards
+
+Follow the [English development standards](../../.standards/docs/en/README.md). The .standards submodule records the exact reviewed revision; upstream changes apply only after an explicit update of that recorded commit. Initialize it before development:
+
+```sh
+git submodule update --init --recursive
+python .standards/.ci/check-adoption.py
+```
+
+Keep both language editions aligned. AGENTS.md links to the adopted English entry point; project-specific instructions supplement the shared requirements.

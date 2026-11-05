@@ -1,5 +1,7 @@
 # Quantum SDK Repository Instructions
 
+- Follow the [English development standards](.standards/docs/en/README.md) at the commit recorded by this repository. Use the contributor-approved Git identity for both author and committer; never invent a placeholder identity.
+
 - Start with the [English SDK documentation](docs/en/README.md).
 - Keep English and Simplified Chinese documentation in separate, cross-linked files under `docs/en/` and `docs/zh-CN/`.
 - Organize source by technical responsibility and mirror feature folders in tests. Keep verification helpers in `.ci/`.
