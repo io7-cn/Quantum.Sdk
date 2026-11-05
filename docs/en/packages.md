@@ -19,3 +19,7 @@ Build the TypeScript package with the commands in the [development guide](README
 Only publish approved artifacts through the release pipeline. Compare the candidate against versions already in each registry, publish the exact verified artifacts, and record the version, source commit, checksums, compatibility and package install verification in the release notes. If a published version needs correction, publish a new version. Consumers can pin the previous compatible version while upgrading.
 
 GitHub Actions uses `publish.yml` and the `release` environment. Configure trusted publishers for both registries and set the NuGet.org profile name in the repository Actions variable `NUGET_USER`.
+
+## Plugin compatibility versions
+
+Plugin compatibility is based on the SDK release version, independently of the Quantum Desktop application version. The .NET and TypeScript packages share that release version. Hosts report the informational version of their referenced `Quantum.Plugin.Abstraction` assembly, including prerelease identifiers and excluding build metadata. Publish a plugin with an explicit `--sdk-version-support` range, for example `"0.3.0-rc.2"` for an exact prerelease or `">=0.3.0-rc.2 <0.4.0"` for a tested range. Prereleases have lower precedence than the corresponding stable version; `0.3.0-rc.2` does not satisfy `>=0.3.0`. Test the declared range in both runtimes where supported. Plugin dependency ranges still refer to the depended-on plugin’s version.
