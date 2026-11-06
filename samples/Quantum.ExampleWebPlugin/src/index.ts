@@ -10,6 +10,12 @@ interface ExamplePluginHandshake {
 export default definePlugin({
   async activate(context) {
     await context.log.info("TypeScript example activated");
+    const point = await context.extensions.define("example-data", 1);
+    const data = await context.extensions.register(
+      `${context.plugin.id}/example-data`, 1, "message", { message: "Hello from a Web extension" });
+    const page = await context.extensions.register("quantum.settings/pages", 1, "web-settings", {
+      title: "Web example", titles: { "zh-CN": "Web 示例" }, view: "settings"
+    });
     const notification = "example.web.status";
     const subscription = await context.notify.subscribe(notification, event => {
       const payload = event.payload;
@@ -19,12 +25,23 @@ export default definePlugin({
     }, { signal: context.signal });
     await context.notify.publish(notification, { state: "activated" }, { signal: context.signal });
     return async () => {
+      await page.dispose();
+      await data.dispose();
+      await point.dispose();
       await subscription.dispose();
       await context.log.info("TypeScript example deactivated");
     };
   },
 
   async mount(context) {
+    if (context.route.view === "settings") {
+      const output = document.createElement("p");
+      context.element.replaceChildren(output);
+      const observation = await context.extensions.observe(`${context.plugin.id}/example-data`, 1, snapshot => {
+        output.textContent = snapshot.contributions.map(entry => JSON.stringify(entry.value)).join("\n");
+      });
+      return () => observation.dispose();
+    }
     const text = createMessages(context.locale.languageName);
     context.element.innerHTML = `
       <style>
