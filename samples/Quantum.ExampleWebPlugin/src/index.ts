@@ -1,4 +1,7 @@
 import { definePlugin } from "@io7/quantum-plugin-sdk";
+import { createExtensionExample } from './extension-example';
+
+let extensionExample: Awaited<ReturnType<typeof createExtensionExample>> | undefined;
 
 interface ExamplePluginHandshake {
   message: string;
@@ -10,12 +13,7 @@ interface ExamplePluginHandshake {
 export default definePlugin({
   async activate(context) {
     await context.log.info("TypeScript example activated");
-    const point = await context.extensions.define("example-data", 1);
-    const data = await context.extensions.register(
-      `${context.plugin.id}/example-data`, 1, "message", { message: "Hello from a Web extension" });
-    const page = await context.extensions.register("quantum.settings/pages", 1, "web-settings", {
-      title: "Web example", titles: { "zh-CN": "Web 示例" }, view: "settings"
-    });
+    extensionExample = await createExtensionExample(context);
     const notification = "example.web.status";
     const subscription = await context.notify.subscribe(notification, event => {
       const payload = event.payload;
@@ -25,9 +23,8 @@ export default definePlugin({
     }, { signal: context.signal });
     await context.notify.publish(notification, { state: "activated" }, { signal: context.signal });
     return async () => {
-      await page.dispose();
-      await data.dispose();
-      await point.dispose();
+      await extensionExample?.dispose();
+      extensionExample = undefined;
       await subscription.dispose();
       await context.log.info("TypeScript example deactivated");
     };
@@ -35,12 +32,7 @@ export default definePlugin({
 
   async mount(context) {
     if (context.route.view === "settings") {
-      const output = document.createElement("p");
-      context.element.replaceChildren(output);
-      const observation = await context.extensions.observe(`${context.plugin.id}/example-data`, 1, snapshot => {
-        output.textContent = snapshot.contributions.map(entry => JSON.stringify(entry.value)).join("\n");
-      });
-      return () => observation.dispose();
+      return extensionExample?.mount(context);
     }
     const text = createMessages(context.locale.languageName);
     context.element.innerHTML = `
@@ -75,6 +67,7 @@ export default definePlugin({
         <div class="actions">
           <button type="button" data-action="handshake">${text.handshakeAgain}</button>
           <button type="button" class="secondary" data-action="dotnet">${text.openDotNet}</button>
+          <button type="button" class="secondary" data-action="settings">${text.openSettings}</button>
           <button type="button" class="secondary" data-action="home">${text.backHome}</button>
         </div>
       </section>
@@ -198,6 +191,15 @@ export default definePlugin({
       "click",
       () => void context.navigation.navigate("/"),
       { signal: context.signal });
+    context.element.querySelector("[data-action=settings]")?.addEventListener("click", () => {
+      void context.navigation.navigate(
+        `/settings?section=${encodeURIComponent(`${context.plugin.id}/web-settings`)}`,
+      ).catch(error => {
+        if (environmentStatus && !context.signal.aborted) {
+          environmentStatus.textContent = errorMessage(error);
+        }
+      });
+    }, { signal: context.signal });
 
     // Mount must not be held open by cross-runtime work. Rendering succeeds immediately,
     // while every interop stage reports its own outcome and is cancelled on unmount.
@@ -232,6 +234,7 @@ interface ExampleMessages {
   readonly contributionStatus: Readonly<Record<"pass" | "failed" | "timedOut", string>>;
   collectFailed(message: string): string;
   readonly openDotNet: string;
+  readonly openSettings: string;
   readonly backHome: string;
   readonly dotNetUnavailable: string;
   readonly connecting: string;
@@ -257,6 +260,7 @@ function createMessages(languageName: string): ExampleMessages {
       contributionStatus: { pass: "跳过", failed: "答复失败", timedOut: "答复超时" },
       collectFailed: message => "收集失败：" + message,
       openDotNet: "打开 .NET 示例",
+      openSettings: "打开插件设置",
       backHome: "返回概览",
       dotNetUnavailable: "示例插件未安装。",
       connecting: "正在连接示例插件…",
@@ -282,6 +286,7 @@ function createMessages(languageName: string): ExampleMessages {
     contributionStatus: { pass: "Skipped", failed: "Failed", timedOut: "Timed out" },
     collectFailed: message => "Collection failed: " + message,
     openDotNet: "Open .NET example",
+    openSettings: "Open plugin settings",
     backHome: "Back to overview",
     dotNetUnavailable: "The example plugin is not installed.",
     connecting: "Connecting to the example plugin…",

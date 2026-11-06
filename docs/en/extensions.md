@@ -2,7 +2,7 @@
 
 [简体中文](../zh-CN/extensions.md)
 
-The `0.3.0-rc.3` candidate adds code-defined extension points. No manifest contribution fields are required. An extension point is a canonical `plugin-id/local-id` string and a positive 32-bit contract version, not a CLR or TypeScript business type. Contributions may contain any JSON value, including null, arrays and scalars. Consumers validate their own business contracts and ignore or report invalid entries individually.
+Plugins define extension points through code. No manifest contribution fields are required. An extension point is a canonical `plugin-id/local-id` string and a positive 32-bit contract version, not a CLR or TypeScript business type. Contributions may contain any JSON value, including null, arrays and scalars. Consumers validate their own business contracts and ignore or report invalid entries individually.
 
 ## .NET
 
@@ -47,6 +47,22 @@ Contributions can precede definitions. They become visible only while both runti
 
 Duplicate registration IDs raise `InvalidOperationException`; malformed input raises argument exceptions; expired handles/scopes reject updates with `ObjectDisposedException`. Web methods reject their promise for the equivalent failures. Observer exceptions are isolated. Operations replace data or remove a handle and do not retry user actions automatically. Registration and delivery are in-process, session-only operations; they are not durable storage or an authorization boundary for trusted .NET plugins.
 
-See the `Quantum.Desktop/docs/en/extensions.md` settings contract for one consumer, and [package verification](packages.md) for the candidate package workflow. The .NET sample defines a custom point and contributes a settings page; its component observes the point without sharing business types.
+See `Quantum.Desktop/docs/en/extensions.md` for the host settings contract and [package verification](packages.md) for build and package checks.
 
 Each runtime is limited to 256 definitions/contributions and 128 observations. Slow observations coalesce queued snapshots after 32 pending updates; do not use this API to deliver every event.
+
+## Try the example plugins
+
+Build and install the [main .NET example](../../samples/Quantum.ExamplePlugin/ExamplePlugin.cs), [companion .NET example](../../samples/Quantum.ExampleDependentPlugin/DependentPlugin.cs) and [Web example](../../samples/Quantum.ExampleWebPlugin/src/extension-example.ts) using the development guides. No settings or extension declarations are added to their manifests.
+
+| Plugin | What it demonstrates |
+| --- | --- |
+| Main .NET example | Defines `quantum.plugin.example/example-data`, contributes its own message and adds an Example plugin settings tab. |
+| Companion .NET example | Contributes to the main plugin's point without sharing a business type, and adds a section to General settings. |
+| Web example | Defines its own point, contributes a message to the .NET example's point and adds an interactive Web settings tab. |
+
+Use Open plugin settings on the example’s main page, or open Settings → Example plugin. Its message list identifies contributors and combines the main, companion and Web messages. Use Update message, Withdraw my message and Restore my message to exercise replacement, disposal and registration. Other plugins' entries remain visible when the main example withdraws only its own message.
+
+Open Settings → Web example and update its message. Both that tab and the main .NET example's tab show the new value. Disable the companion plugin in Plugin management: its message and General section disappear; re-enable it and they return. The Web contribution can remain pending while the main point is unavailable and bind again when it returns.
+
+The example payload contract is a JSON object with a string `message` and optional string `messageZh`; consumers ignore malformed entries. [ExampleSettings.razor](../../samples/Quantum.ExamplePlugin/ExampleSettings.razor) shows observation and validation. [ExampleExtensions.cs](../../samples/Quantum.ExamplePlugin/ExampleExtensions.cs) owns the main registrations in an ordinary service and releases them on stop. The Web view releases its observation on unmount, and plugin cleanup releases its registrations.

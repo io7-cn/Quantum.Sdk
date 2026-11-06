@@ -19,7 +19,3 @@ Build the TypeScript package with the commands in the [development guide](README
 Only publish approved artifacts through the release pipeline. Compare the candidate against versions already in each registry, publish the exact verified artifacts, and record the version, source commit, checksums, compatibility and package install verification in the release notes. If a published version needs correction, publish a new version. Consumers can pin the previous compatible version while upgrading.
 
 GitHub Actions uses `publish.yml` and the `release` environment. Configure trusted publishers for both registries and set the NuGet.org profile name in the repository Actions variable `NUGET_USER`.
-
-## Unpublished 0.3.0-rc.3 candidate
-
-Adds runtime-scoped, code-defined JSON extension points in both SDKs and settings view examples. This is an additive contract candidate; it has not been published. Verify Desktop against the exact candidate NuGet artifact and the actual iframe bridge before release. Existing plugins do not need manifest changes. See [runtime extensions](extensions.md).

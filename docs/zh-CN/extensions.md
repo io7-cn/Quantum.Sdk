@@ -2,7 +2,7 @@
 
 [English](../en/extensions.md)
 
-`0.3.0-rc.3` 候选版本增加了通过代码定义的扩展点，无需新增清单字段。扩展点由规范的 `插件ID/本地ID` 字符串和正的 32 位契约版本组成，不绑定 CLR 或 TypeScript 业务类型。贡献可以是任意 JSON 值，包括 null、数组和标量。消费者负责校验自己的业务契约，并逐项忽略或报告无效贡献。
+插件通过代码定义扩展点，无需新增清单字段。扩展点由规范的 `插件ID/本地ID` 字符串和正的 32 位契约版本组成，不绑定 CLR 或 TypeScript 业务类型。贡献可以是任意 JSON 值，包括 null、数组和标量。消费者负责校验自己的业务契约，并逐项忽略或报告无效贡献。
 
 ## .NET
 
@@ -47,6 +47,22 @@ await point.dispose();
 
 重复 ID 抛出 `InvalidOperationException`；非法参数抛出参数异常；失效句柄和作用域通过 `ObjectDisposedException` 拒绝更新。Web 对应操作拒绝 Promise。观察者异常被隔离。操作只替换数据或移除句柄，不自动重试用户动作。注册和通知只在本地会话中存在，不是持久存储，也不是可信 .NET 插件的安全隔离边界。
 
-参见作为消费者示例的 `Quantum.Desktop/docs/zh-CN/extensions.md` 设置契约 和[包验证流程](packages.md)。.NET 示例定义自有扩展点、贡献设置页，并在组件中观察扩展点，无需共享业务类型。
+宿主设置消费契约见 `Quantum.Desktop/docs/zh-CN/extensions.md`；构建与包检查见[包验证流程](packages.md)。
 
 每个运行时最多注册 256 个定义或贡献、128 个观察订阅。慢观察者积压达到 32 个快照后合并待处理状态，因此不能用该接口传递必须逐条交付的事件。
+
+## 体验示例插件
+
+按照开发指南构建并安装[主 .NET 示例](../../samples/Quantum.ExamplePlugin/ExamplePlugin.cs)、[依赖 .NET 示例](../../samples/Quantum.ExampleDependentPlugin/DependentPlugin.cs)和 [Web 示例](../../samples/Quantum.ExampleWebPlugin/src/extension-example.ts)。这些插件无需在清单中增加设置或扩展声明。
+
+| 插件 | 展示的能力 |
+| --- | --- |
+| 主 .NET 示例 | 定义 `quantum.plugin.example/example-data`，贡献自己的消息，并添加“示例插件”设置页签。 |
+| 依赖 .NET 示例 | 无需共享业务类型，就能向主示例的扩展点贡献消息，并在通用设置中增加分组。 |
+| Web 示例 | 定义自己的扩展点，向 .NET 示例的扩展点贡献消息，并添加可交互的 Web 设置页签。 |
+
+点击示例主页面的“打开插件设置”，或打开“设置 → 示例插件”。消息列表标明贡献来源，汇总主示例、依赖示例和 Web 示例的消息。点击“更新消息”“撤回我的消息”“恢复我的消息”，分别体验替换数据、释放贡献和重新注册。主示例只撤回自己的消息时，其他插件的条目仍然显示。
+
+打开“设置 → Web 示例”并更新消息，当前页和主 .NET 示例设置页都会显示新值。在插件管理中禁用依赖示例，它的消息和通用设置分组会消失；重新启用后恢复。主扩展点不可用时，Web 贡献可以保持待绑定，并在扩展点恢复后重新出现。
+
+示例载荷契约是包含字符串 `message` 和可选字符串 `messageZh` 的 JSON 对象，消费者忽略不符合契约的条目。[ExampleSettings.razor](../../samples/Quantum.ExamplePlugin/ExampleSettings.razor) 展示观察与校验；[ExampleExtensions.cs](../../samples/Quantum.ExamplePlugin/ExampleExtensions.cs) 在普通服务中管理主示例注册，并在停止时释放。Web 视图在卸载时释放观察订阅，插件清理时释放各项注册。
