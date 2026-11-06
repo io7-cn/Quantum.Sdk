@@ -3,6 +3,7 @@ export * from "./capabilities/dispatch.js";
 export * from "./capabilities/notify.js";
 export * from "./capabilities/request.js";
 export * from "./installation/index.js";
+export * from "./extensions/index.js";
 export * from "./manifest/capabilities.js";
 export * from "./manifest/identity.js";
 export * from "./mobile/index.js";

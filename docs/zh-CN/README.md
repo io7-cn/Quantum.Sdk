@@ -26,7 +26,7 @@ npm test --prefix samples/Quantum.ExampleWebPlugin
 
 运行 `dotnet format Quantum.Sdk.slnx`，按根目录的 `.editorconfig` 规则格式化 C#。C# 和 TypeScript 的控制流块都使用大括号，包括只有一条语句的分支。
 
-参见 [.NET 插件开发](dotnet-plugin-development.md)、[Web 插件开发](web-plugin-development.md)、[移动界面](mobile-ui.md)、[包验证与发布](packages.md)、[术语表](glossary.md)和[贡献指南](CONTRIBUTING.md)。SDK 由艾欧柒（杭州）智能科技有限公司的 Quantum 维护团队负责。一般问题请通过仓库的议题区反馈，漏洞请参照[安全报告说明](../../SECURITY.md)。项目采用 [Apache 2.0 许可证](../../LICENSE)。
+参见 [.NET 插件开发](dotnet-plugin-development.md)、[Web 插件开发](web-plugin-development.md)、[运行时扩展](extensions.md)、[移动界面](mobile-ui.md)、[包验证与发布](packages.md)、[术语表](glossary.md)和[贡献指南](CONTRIBUTING.md)。SDK 由艾欧柒（杭州）智能科技有限公司的 Quantum 维护团队负责。一般问题请通过仓库的议题区反馈，漏洞请参照[安全报告说明](../../SECURITY.md)。项目采用 [Apache 2.0 许可证](../../LICENSE)。
 
 ## 开发规范
 

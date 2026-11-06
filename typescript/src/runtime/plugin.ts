@@ -1,4 +1,5 @@
 import type { QuantumCapabilities } from "../capabilities/catalog.js";
+import type { QuantumExtensions } from "../extensions/index.js";
 import type { QuantumNotifier } from "../capabilities/notify.js";
 import type { QuantumRequester } from "../capabilities/request.js";
 import type { QuantumPluginIdentity, QuantumPluginInfo } from "../manifest/identity.js";
@@ -43,6 +44,7 @@ export interface QuantumPluginContext {
   readonly notify: QuantumNotifier;
   readonly request: QuantumRequester;
   readonly mobile: QuantumMobilePages;
+  readonly extensions: QuantumExtensions;
 }
 
 export interface QuantumRoute {

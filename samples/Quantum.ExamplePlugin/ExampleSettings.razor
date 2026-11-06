@@ -1,0 +1,70 @@
+@namespace Quantum.ExamplePlugin
+@using Microsoft.AspNetCore.Components
+@using Quantum.Plugin.Abstraction
+@using Microsoft.Extensions.Localization
+@using Quantum.ExamplePlugin.Localization
+@using System.Globalization
+@using System.Text.Json
+@implements IDisposable
+@inject IQuantumExtensions Extensions
+@inject ExampleExtensions Example
+@inject IStringLocalizer<PluginStrings> L
+
+<p>@L["ExtensionsDescription"]</p>
+<div>
+    <button type="button" class="secondary-button" disabled="@(!Example.HasMessage)" @onclick="Example.UpdateMessage">@L["UpdateMessage"]</button>
+    <button type="button" class="secondary-button" @onclick="Example.ToggleMessage">@L[Example.HasMessage ? "WithdrawMessage" : "RestoreMessage"]</button>
+</div>
+<ul aria-live="polite">
+    @foreach (var contribution in _snapshot?.Contributions ?? [])
+    {
+        @if (ReadMessage(contribution.Value) is { } message)
+        {
+            <li><strong>@contribution.PluginId</strong>: @message</li>
+        }
+    }
+</ul>
+
+@code {
+    private QuantumExtensionSnapshot? _snapshot;
+    private IDisposable? _observation;
+    private bool _disposed;
+
+    private static string? ReadMessage(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Object
+            || !value.TryGetProperty("message", out var message) || message.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        var field = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "zh" ? "messageZh" : "message";
+        if (value.TryGetProperty(field, out var localized) && localized.ValueKind == JsonValueKind.String)
+        {
+            return localized.GetString();
+        }
+
+        return message.GetString();
+    }
+
+    protected override void OnInitialized()
+    {
+        _observation = Extensions.Observe("quantum.plugin.example/example-data", 1, snapshot =>
+        {
+            _ = InvokeAsync(() =>
+            {
+                if (!_disposed)
+                {
+                    _snapshot = snapshot;
+                    StateHasChanged();
+                }
+            });
+        });
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _observation?.Dispose();
+    }
+}
